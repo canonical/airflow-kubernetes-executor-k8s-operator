@@ -1,0 +1,67 @@
+type: charm
+name: airflow-kubernetes-executor-k8s
+title: Airflow Kubernetes Executor
+summary: A charm to configure the Airflow Kubernetes Executor
+description: |
+  A charm to configure the Airflow Kubernetes Executor.
+
+  Manages the Kubernetes resources required for Airflow workers to run as Pods
+  in a Kubernetes cluster, including the ConfigMap and Secret holding Airflow
+  configuration. Integrates with the Airflow Coordinator charm to receive global
+  Airflow configuration and shares the executor-specific pod template and
+  configuration.
+
+links:
+  contact: Workflows Team <workflows-charmers@canonical.com>
+  issues:
+    - https://github.com/canonical/airflow-kubernetes-executor-k8s-operator/issues
+  source:
+    - https://github.com/canonical/airflow-kubernetes-executor-k8s-operator
+
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+parts:
+  charm:
+    plugin: uv
+    source: .
+    build-snaps:
+      - astral-uv
+  files:
+    plugin: dump
+    source: .
+    stage:
+      - LICENSE
+
+requires:
+  airflow-config:
+    interface: airflow_coordinator
+    limit: 1
+
+provides:
+  airflow-executor-config:
+    interface: airflow_kubernetes_executor
+
+config:
+  options:
+    pod_name:
+      type: string
+      default: "airflow-worker"
+      description: >
+        Base name for worker Pods. This value is always overridden dynamically at
+        pod launch by Airflow to guarantee uniqueness across all pods, but it must
+        be present in the pod template and cannot be left blank.
+    base_image:
+      type: string
+      description: >
+        OCI image to use for worker Pods (both the init container that fetches DAGs
+        and the main worker container). For Local DAG bundle sources, this image
+        must contain the DAGs at the same dag_folder path configured in Airflow.
+        This is a required value, if not provided the unit will go into blocked status.
+    namespace:
+      type: string
+      description: >
+        Kubernetes namespace in which worker Pods will be scheduled. The namespace
+        must already exist in the cluster; the charm will not create it.
+        This is a required value, if not provided the charm will go into blocked status.

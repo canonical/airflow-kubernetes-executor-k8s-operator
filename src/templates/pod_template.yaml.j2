@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ pod_name }}
+  namespace: {{ namespace }}
+spec:
+  restartPolicy: Never
+  securityContext:
+    fsGroup: 50000
+
+  # --------------------------
+  # InitContainer: initialize DAG bundles
+  # --------------------------
+  initContainers:
+    - name: dag-bundle-init
+      image: {{ base_image }}
+      securityContext:
+        runAsUser: 50000
+      command:
+        - python3
+        - -c
+        - |
+          from airflow.dag_processing.bundles.manager import DagBundlesManager
+          manager = DagBundlesManager()
+          for bundle in manager.get_all_dag_bundles():
+              bundle.initialize()
+      env:
+        # Defaults to /opt/airflow as per Airflow standards, can be overridden if
+        # the Airflow Coordinator charm sets the value.
+        - name: AIRFLOW_HOME
+          value: {{ airflow_home | default('/opt/airflow') }}
+        # Defaults to /opt/airflow/dag_bundles as per Airflow standards, can be overridden
+        # if the Airflow Coordinator charm sets the value.
+        - name: AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_STORAGE_PATH
+          value: {{ dag_bundle_storage_path | default('/opt/airflow/dag_bundles') }}
+      volumeMounts:
+        - name: airflow-logs
+          mountPath: /opt/airflow/logs
+        - name: airflow-config
+          mountPath: /opt/airflow/airflow.cfg
+          subPath: airflow.cfg
+          readOnly: true
+        - name: dag-bundles
+          mountPath: /opt/airflow/dag_bundles
+
+  # --------------------------
+  # Base Airflow container
+  # --------------------------
+  containers:
+    - name: base
+      image: {{ base_image }}
+      env:
+        - name: AIRFLOW_HOME
+          value: {{ airflow_home | default('/opt/airflow') }}
+        # Always KubernetesExecutor: this charm exclusively manages the Kubernetes
+        # executor and cannot be deployed alongside a different executor type.
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: KubernetesExecutor
+        - name: AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_STORAGE_PATH
+          value: {{ dag_bundle_storage_path | default('/opt/airflow/dag_bundles') }}
+        # Git connection required by the DAG bundle init container to clone repositories.
+        - name: AIRFLOW_CONN_GIT_DEFAULT
+          value: '{"conn_type": "git"}'
+{% for env_var in extra_env %}
+        - name: {{ env_var.name }}
+          valueFrom:
+            secretKeyRef:
+              name: airflow-secret-config
+              key: {{ env_var.secret_key }}
+{% endfor %}
+      volumeMounts:
+        - name: airflow-logs
+          mountPath: /opt/airflow/logs
+        - name: airflow-config
+          mountPath: /opt/airflow/airflow.cfg
+          subPath: airflow.cfg
+          readOnly: true
+        - name: dag-bundles
+          mountPath: /opt/airflow/dag_bundles
+
+  # --------------------------
+  # Volumes
+  # --------------------------
+  volumes:
+    - name: airflow-config
+      configMap:
+        name: airflow-config
+    - name: airflow-secret-config
+      secret:
+        secretName: airflow-secret-config
+    - name: dag-bundles
+      emptyDir: {}
+    - name: airflow-logs
+      emptyDir: {}
