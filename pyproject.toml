@@ -4,7 +4,7 @@
 [project]
 name = "airflow-kubernetes-executor-k8s-operator"
 version = "0.0"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 # Dependencies of the charm code.
 # Include dependencies of any charmlibs used (copy the PYDEPS from each lib).

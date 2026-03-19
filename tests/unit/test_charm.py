@@ -77,6 +77,7 @@ def test_active_when_coordinator_ready(
     state_out = context.run(context.on.start(), base_state)
 
     assert state_out.unit_status == ops.ActiveStatus()
+    mock_apply_k8s_resources.assert_called_once()
 
 
 def test_update_status_triggers_reconcile(
