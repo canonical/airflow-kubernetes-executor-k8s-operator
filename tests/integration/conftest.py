@@ -12,6 +12,8 @@ import time
 
 import jubilant
 import pytest
+import sh
+from test_charm import EXECUTOR_NAMESPACE
 
 logger = logging.getLogger(__name__)
 
@@ -19,31 +21,38 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="module")
 def juju(request: pytest.FixtureRequest):
     """Create a temporary Juju model for running tests."""
-    if "JUJU_MODEL" in os.environ:
-        juju = jubilant.Juju(wait_timeout=10 * 60)
+    # Create the K8s namespace that the executor charm will use to schedule worker pods.
+    # The charm expects this namespace to already exist in the cluster.
+    sh.kubectl("create", "namespace", EXECUTOR_NAMESPACE)
 
-        juju.add_model(os.environ["JUJU_MODEL"], config={"update-status-hook-interval": "10s"})
+    try:
+        if "JUJU_MODEL" in os.environ:
+            juju = jubilant.Juju(wait_timeout=10 * 60)
 
-        yield juju
+            juju.add_model(os.environ["JUJU_MODEL"], config={"update-status-hook-interval": "10s"})
 
-        if request.session.testsfailed:
-            logger.info("Collecting Juju logs...")
-            time.sleep(0.5)  # Wait for Juju to process logs.
-            log = juju.debug_log(limit=1000)
-            print(log, end="", file=sys.stderr)
+            yield juju
 
-        return
+            if request.session.testsfailed:
+                logger.info("Collecting Juju logs...")
+                time.sleep(0.5)  # Wait for Juju to process logs.
+                log = juju.debug_log(limit=1000)
+                print(log, end="", file=sys.stderr)
 
-    with jubilant.temp_model(config={"update-status-hook-interval": "10s"}) as juju:
-        juju.wait_timeout = 10 * 60
+            return
 
-        yield juju
+        with jubilant.temp_model(config={"update-status-hook-interval": "10s"}) as juju:
+            juju.wait_timeout = 10 * 60
 
-        if request.session.testsfailed:
-            logger.info("Collecting Juju logs...")
-            time.sleep(0.5)  # Wait for Juju to process logs.
-            log = juju.debug_log(limit=1000)
-            print(log, end="", file=sys.stderr)
+            yield juju
+
+            if request.session.testsfailed:
+                logger.info("Collecting Juju logs...")
+                time.sleep(0.5)  # Wait for Juju to process logs.
+                log = juju.debug_log(limit=1000)
+                print(log, end="", file=sys.stderr)
+    finally:
+        sh.kubectl("delete", "namespace", EXECUTOR_NAMESPACE, "--ignore-not-found")
 
 
 @pytest.fixture(scope="session")

@@ -60,13 +60,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get purge $(dpkg -l | grep -i docker | awk '{print $2}')
-          sudo apt-get purge containerd.io
-          sudo rm -r /run/containerd
-
           sudo snap install concierge --classic
 
-          sudo -E concierge prepare -p k8s --extra-snaps="astral-uv,just"
+          sudo -E concierge prepare -p k8s --extra-snaps="astral-uv,just,kubectl"
 
           sudo k8s kubectl config view --raw > ~/.kube/config
 

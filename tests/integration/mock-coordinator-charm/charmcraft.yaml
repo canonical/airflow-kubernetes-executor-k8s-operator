@@ -27,13 +27,6 @@ provides:
   airflow-config:
     interface: airflow_coordinator
 
-actions:
-  share-config:
-    description: Manually share config with related charms.
-    params:
-      config-template:
-        type: string
-        description: Airflow config template to share.
-      sensitive-data:
-        type: string
-        description: JSON string of sensitive data to share.
+requires:
+  airflow-executor-config:
+    interface: airflow_kubernetes_executor

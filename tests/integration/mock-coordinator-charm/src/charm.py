@@ -4,7 +4,6 @@
 
 """Mock Airflow Coordinator charm for integration testing."""
 
-import json
 import logging
 
 import charms.airflow_coordinator_k8s.v0.airflow_coordinator as airflow_coordinator
@@ -28,16 +27,25 @@ class MockCoordinatorCharm(ops.CharmBase):
             self, "airflow-config", airflow_coordinator.AirflowCoordinatorRequirerModel
         )
 
+        self._executor_config = airflow_coordinator.AirflowCoordinatorRequires(
+            self,
+            "airflow-executor-config",
+            callback=self._on_executor_config_changed,
+        )
+
         self.framework.observe(self.on.start, self._set_active)
         self.framework.observe(self.on.update_status, self._set_active)
         self.framework.observe(
             self.on["airflow-config"].relation_joined,
             self._on_config_relation_joined,
         )
-        self.framework.observe(self.on.share_config_action, self._on_share_config)
 
     def _set_active(self, _):
         """Set the unit status to active."""
+        self.unit.status = ops.ActiveStatus()
+
+    def _on_executor_config_changed(self, _):
+        """Handle executor config relation changes."""
         self.unit.status = ops.ActiveStatus()
 
     def _share_config(self, config_template=CONFIG_TEMPLATE, sensitive_data=None):
@@ -53,13 +61,6 @@ class MockCoordinatorCharm(ops.CharmBase):
         """Share default config when the airflow-config relation is joined."""
         self._share_config()
         self.unit.status = ops.ActiveStatus()
-
-    def _on_share_config(self, event: ops.ActionEvent):
-        """Share config with related charms via manual action trigger."""
-        config_template = event.params.get("config-template", CONFIG_TEMPLATE)
-        sensitive_data = json.loads(event.params.get("sensitive-data", json.dumps(SENSITIVE_DATA)))
-        self._share_config(config_template, sensitive_data)
-        event.set_results({"result": "ok"})
 
 
 if __name__ == "__main__":
