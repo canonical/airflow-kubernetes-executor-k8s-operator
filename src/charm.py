@@ -105,7 +105,11 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
     def _render_pod_template(self) -> str:
         """Render the pod template Jinja2 template using charm config."""
         provider_content = self.config_requires.provider_content
-        sensitive_data = json.loads(provider_content.sensitive_data) if provider_content and provider_content.sensitive_data else {}
+        sensitive_data = (
+            json.loads(provider_content.sensitive_data)
+            if provider_content and provider_content.sensitive_data
+            else {}
+        )
 
         # We will assume that coordinator always send these values in the format
         # <section>__<key>, exactly as they are shown in the Airflow Configuration

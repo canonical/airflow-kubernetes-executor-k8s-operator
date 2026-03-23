@@ -1,0 +1,32 @@
+type: charm
+name: mock-coordinator-charm
+title: Mock Airflow Coordinator charm
+summary: A mock Airflow Coordinator charm for integration testing.
+description: |
+  Mock coordinator charm that provides the airflow-config relation to the
+  Airflow Kubernetes Executor charm under test. Shares a default config
+  template and sensitive data on relation joined.
+
+base: ubuntu@24.04
+platforms:
+  amd64:
+
+parts:
+  charm:
+    plugin: uv
+    source: .
+    build-snaps:
+      - astral-uv
+  add-charm-libs:
+    plugin: dump
+    source: .
+    prime:
+      - lib
+
+provides:
+  airflow-config:
+    interface: airflow_coordinator
+
+requires:
+  airflow-executor-config:
+    interface: airflow_kubernetes_executor
