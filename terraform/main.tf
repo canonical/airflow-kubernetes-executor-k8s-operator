@@ -1,6 +1,7 @@
 resource "juju_application" "airflow_kubernetes_executor_k8s" {
   name       = var.app_name
   model_uuid = var.model_uuid
+  trust      = true
 
   charm {
     name     = "airflow-kubernetes-executor-k8s"
