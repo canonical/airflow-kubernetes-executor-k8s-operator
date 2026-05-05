@@ -65,7 +65,7 @@ spec:
         - name: {{ env_var.name }}
           valueFrom:
             secretKeyRef:
-              name: airflow-secret-config
+              name: {{ secret_name }}
               key: {{ env_var.secret_key }}
 {% endfor %}
       volumeMounts:
@@ -84,10 +84,10 @@ spec:
   volumes:
     - name: airflow-config
       configMap:
-        name: airflow-config
+        name: {{ configmap_name }}
     - name: airflow-secret-config
       secret:
-        secretName: airflow-secret-config
+        secretName: {{ secret_name }}
     - name: dag-bundles
       emptyDir: {}
     - name: airflow-logs
