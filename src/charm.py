@@ -126,6 +126,8 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             base_image=self.config["base_image"],
             namespace=self.config["namespace"],
             extra_env=extra_env,
+            configmap_name=constants.CONFIGMAP_NAME,
+            secret_name=constants.SECRET_NAME,
         )
 
     @property
