@@ -48,6 +48,7 @@ spec:
   # --------------------------
   containers:
     - name: base
+      command: ["/bin/bash", "-c", "exec python3 \"$@\""]
       image: {{ base_image }}
       env:
         - name: AIRFLOW_HOME
