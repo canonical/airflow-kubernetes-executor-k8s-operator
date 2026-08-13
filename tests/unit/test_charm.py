@@ -208,6 +208,50 @@ class TestPodTemplateRendering:
 
         assert "AIRFLOW__CORE__SECRET_KEY" in rendered
 
+    def test_render_pod_template_injects_spark_env_from_extra_data(self, context, base_state):
+        """Spark namespace/username from extra_data become plain env vars in the pod template."""
+        model = airflow_coordinator.AirflowCoordinatorProviderModel(
+            config_template=MOCK_CONFIG_TEMPLATE,
+            sensitive_data=json.dumps(MOCK_SENSITIVE_DATA),
+            extra_data={
+                constants.SPARK_NAMESPACE_KEY: "airflow-spark",
+                constants.SPARK_USERNAME_KEY: "spark",
+            },
+        )
+
+        with unittest.mock.patch.object(
+            airflow_coordinator.AirflowCoordinatorRequires,
+            "provider_content",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=model,
+        ):
+            with context(context.on.start(), base_state) as manager:
+                rendered = manager.charm._render_pod_template()
+
+        assert "SPARK_NAMESPACE" in rendered
+        assert "airflow-spark" in rendered
+        assert "SPARK_USERNAME" in rendered
+        assert "serviceAccountName: spark" in rendered
+
+    def test_render_pod_template_no_spark_without_extra_data(self, context, base_state):
+        """Without extra_data, no spark env vars or serviceAccountName are rendered."""
+        model = airflow_coordinator.AirflowCoordinatorProviderModel(
+            config_template=MOCK_CONFIG_TEMPLATE,
+            sensitive_data=json.dumps(MOCK_SENSITIVE_DATA),
+        )
+
+        with unittest.mock.patch.object(
+            airflow_coordinator.AirflowCoordinatorRequires,
+            "provider_content",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=model,
+        ):
+            with context(context.on.start(), base_state) as manager:
+                rendered = manager.charm._render_pod_template()
+
+        assert "SPARK_NAMESPACE" not in rendered
+        assert "serviceAccountName" not in rendered
+
 
 class TestExecutorConfig:
     def test_build_executor_config_contains_required_keys(self, context, base_state):

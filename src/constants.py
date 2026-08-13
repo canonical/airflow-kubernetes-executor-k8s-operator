@@ -22,6 +22,11 @@ KUBERNETES_EXECUTOR_SECTION = "kubernetes_executor"
 # rendered pod spec there.
 AIRFLOW_POD_TEMPLATE_FILE_PATH = "/opt/airflow/pod_templates/worker_pod_template.yaml"
 
+# Keys used in the extra_data dict received from the coordinator, populated from the
+# Spark Integration Hub relation (spark-service-account interface).
+SPARK_NAMESPACE_KEY = "spark_namespace"
+SPARK_USERNAME_KEY = "spark_username"
+
 # Jinja2 template files rendered into Kubernetes resources by KubernetesResourceHandler.
 K8S_RESOURCE_FILES = [
     "src/templates/configmap.j2",
