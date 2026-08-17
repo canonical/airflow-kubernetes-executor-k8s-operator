@@ -120,16 +120,18 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             if key not in _NON_SECRET_KEYS
         ]
 
-        # Spark env vars are injected as plain (non-secret) env vars from extra_data,
-        # which the coordinator populates from the spark-service-account relation.
+        # Spark env vars injected as plain (non-secret) values from extra_data,
+        # populated by the coordinator's spark-service-account relation.
         extra_data = (provider_content.extra_data or {}) if provider_content else {}
-        spark_namespace = extra_data.get(constants.SPARK_NAMESPACE_KEY)
-        spark_username = extra_data.get(constants.SPARK_USERNAME_KEY)
-        spark_env = []
-        if spark_namespace:
-            spark_env.append({"name": "SPARK_NAMESPACE", "value": spark_namespace})
-        if spark_username:
-            spark_env.append({"name": "SPARK_USERNAME", "value": spark_username})
+        spark_env_mapping = {
+            "SPARK_NAMESPACE": extra_data.get(constants.SPARK_NAMESPACE_KEY),
+            "SPARK_USERNAME": extra_data.get(constants.SPARK_USERNAME_KEY),
+        }
+        spark_env = [
+            {"name": name, "value": value}
+            for name, value in spark_env_mapping.items()
+            if value
+        ]
 
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
         return jinja2.Template(template_str).render(
@@ -138,7 +140,7 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             namespace=self.config["namespace"],
             extra_env=extra_env,
             spark_env=spark_env,
-            service_account_name=spark_username,
+            service_account_name=extra_data.get(constants.SPARK_USERNAME_KEY),
             configmap_name=constants.CONFIGMAP_NAME,
             secret_name=constants.SECRET_NAME,
         )
