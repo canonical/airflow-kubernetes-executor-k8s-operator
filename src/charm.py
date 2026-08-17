@@ -128,9 +128,7 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             "SPARK_USERNAME": extra_data.get(constants.SPARK_USERNAME_KEY),
         }
         spark_env = [
-            {"name": name, "value": value}
-            for name, value in spark_env_mapping.items()
-            if value
+            {"name": name, "value": value} for name, value in spark_env_mapping.items() if value
         ]
 
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
