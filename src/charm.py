@@ -114,9 +114,9 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # We will assume that coordinator always send these values in the format
         # <section>__<key>, exactly as they are shown in the Airflow Configuration
         # documentation.
-        # Keys with the special prefix "connections__" are Airflow connection
-        # definitions; they use AIRFLOW_CONN_ prefix (not AIRFLOW__) as required
-        # by Airflow's env-var connection mechanism.
+        # Keys prefixed with "connections__" are Airflow connection URIs;
+        # they use AIRFLOW_CONN_ prefix (not AIRFLOW__) per Airflow's env-var
+        # connection mechanism.
         extra_env = []
         conn_env = []
         for key in sensitive_data:
