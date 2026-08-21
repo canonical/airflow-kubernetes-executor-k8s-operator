@@ -117,7 +117,10 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # Keys prefixed with "connections__" become AIRFLOW_CONN_* env vars;
         # all others become AIRFLOW__* env vars (standard Airflow override format).
         extra_env = [
-            {"name": f"AIRFLOW_CONN_{key.removeprefix('connections__').upper()}", "secret_key": key}
+            {
+                "name": f"AIRFLOW_CONN_{key.removeprefix('connections__').upper()}",
+                "secret_key": key,
+            }
             if key.startswith("connections__")
             else {"name": f"AIRFLOW__{key.upper()}", "secret_key": key}
             for key in sensitive_data
