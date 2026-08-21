@@ -114,19 +114,15 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # We will assume that coordinator always send these values in the format
         # <section>__<key>, exactly as they are shown in the Airflow Configuration
         # documentation.
-        # Keys prefixed with "connections__" are Airflow connection URIs;
-        # they use AIRFLOW_CONN_ prefix (not AIRFLOW__) per Airflow's env-var
-        # connection mechanism.
-        extra_env = []
-        conn_env = []
-        for key in sensitive_data:
-            if key in _NON_SECRET_KEYS:
-                continue
-            if key.startswith("connections__"):
-                conn_id = key[len("connections__"):]
-                conn_env.append({"name": "AIRFLOW_CONN_" + conn_id.upper(), "secret_key": key})
-            else:
-                extra_env.append({"name": "AIRFLOW__" + key.upper(), "secret_key": key})
+        # Keys prefixed with "connections__" become AIRFLOW_CONN_* env vars;
+        # all others become AIRFLOW__* env vars (standard Airflow override format).
+        extra_env = [
+            {"name": f"AIRFLOW_CONN_{key.removeprefix('connections__').upper()}", "secret_key": key}
+            if key.startswith("connections__")
+            else {"name": f"AIRFLOW__{key.upper()}", "secret_key": key}
+            for key in sensitive_data
+            if key not in _NON_SECRET_KEYS
+        ]
 
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
         return jinja2.Template(template_str).render(
@@ -134,7 +130,6 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             base_image=self.config["base_image"],
             namespace=self.config["namespace"],
             extra_env=extra_env,
-            conn_env=conn_env,
             configmap_name=constants.CONFIGMAP_NAME,
             secret_name=constants.SECRET_NAME,
         )
