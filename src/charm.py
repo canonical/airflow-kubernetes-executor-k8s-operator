@@ -122,9 +122,7 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
 
         extra_data = (provider_content.extra_data or {}) if provider_content else {}
         extra_env = [
-            {"name": key.upper(), "value": value}
-            for key, value in extra_data.items()
-            if value
+            {"name": key.upper(), "value": value} for key, value in extra_data.items() if value
         ]
 
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
