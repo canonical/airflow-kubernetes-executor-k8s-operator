@@ -114,21 +114,17 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # We will assume that coordinator always send these values in the format
         # <section>__<key>, exactly as they are shown in the Airflow Configuration
         # documentation.
-        extra_env = [
+        extra_env_sensitive = [
             {"name": "AIRFLOW__" + key.upper(), "secret_key": key}
             for key in sensitive_data
             if key not in _NON_SECRET_KEYS
         ]
 
-        # Spark env vars injected as plain (non-secret) values from extra_data,
-        # populated by the coordinator's spark-service-account relation.
         extra_data = (provider_content.extra_data or {}) if provider_content else {}
-        spark_env_mapping = {
-            "SPARK_NAMESPACE": extra_data.get(constants.SPARK_NAMESPACE_KEY),
-            "SPARK_USERNAME": extra_data.get(constants.SPARK_USERNAME_KEY),
-        }
-        spark_env = [
-            {"name": name, "value": value} for name, value in spark_env_mapping.items() if value
+        extra_env = [
+            {"name": key.upper(), "value": value}
+            for key, value in extra_data.items()
+            if value
         ]
 
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
@@ -136,8 +132,8 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             pod_name=self.config["pod_name"],
             base_image=self.config["base_image"],
             namespace=self.config["namespace"],
+            extra_env_sensitive=extra_env_sensitive,
             extra_env=extra_env,
-            spark_env=spark_env,
             service_account_name=extra_data.get(constants.SPARK_USERNAME_KEY),
             configmap_name=constants.CONFIGMAP_NAME,
             secret_name=constants.SECRET_NAME,
