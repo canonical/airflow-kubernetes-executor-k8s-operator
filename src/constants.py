@@ -31,6 +31,7 @@ SPARK_USERNAME_KEY = "spark_username"
 K8S_RESOURCE_FILES = [
     "src/templates/configmap.j2",
     "src/templates/secret.j2",
+    "src/templates/spark_rbac.j2",
 ]
 
 # Status messages

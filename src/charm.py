@@ -132,7 +132,6 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             namespace=self.config["namespace"],
             extra_env_sensitive=extra_env_sensitive,
             extra_env=extra_env,
-            service_account_name=extra_data.get(constants.SPARK_USERNAME_KEY),
             configmap_name=constants.CONFIGMAP_NAME,
             secret_name=constants.SECRET_NAME,
         )
@@ -160,6 +159,8 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # Strip the rendering-control flag before storing values in the K8s Secret.
         secret_data = {k: v for k, v in sensitive_data.items() if k != "render_sensitive_data"}
 
+        extra_data = (provider_content.extra_data or {}) if provider_content else {}
+
         return {
             "app_name": self.app.name,
             "model_name": self.model.name,
@@ -168,6 +169,7 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             "airflow_config": rendered_config,
             "sensitive_data": secret_data,
             "namespace": self.config["namespace"],
+            "spark_namespace": extra_data.get(constants.SPARK_NAMESPACE_KEY),
         }
 
     def _apply_k8s_resources(self) -> None:

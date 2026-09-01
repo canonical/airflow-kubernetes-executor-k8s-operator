@@ -231,7 +231,7 @@ class TestPodTemplateRendering:
         assert "SPARK_NAMESPACE" in rendered
         assert "airflow-spark" in rendered
         assert "SPARK_USERNAME" in rendered
-        assert "serviceAccountName: spark" in rendered
+        assert "serviceAccountName" not in rendered
 
     def test_render_pod_template_no_spark_without_extra_data(self, context, base_state):
         """Without extra_data, no spark env vars or serviceAccountName are rendered."""
