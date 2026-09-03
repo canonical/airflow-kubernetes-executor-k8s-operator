@@ -11,6 +11,7 @@ from charmed_kubeflow_chisme.kubernetes import (
 )
 from lightkube.generic_resource import load_in_cluster_generic_resources
 from lightkube.resources.core_v1 import ConfigMap, Secret
+from lightkube.resources.rbac_authorization_v1 import Role, RoleBinding
 
 import constants
 
@@ -64,7 +65,7 @@ class AirflowK8sManager:
                 context=context,
                 logger=logger,
                 labels=self._labels(),
-                resource_types={ConfigMap, Secret},
+                resource_types={ConfigMap, Secret, Role, RoleBinding},
             )
         else:
             self._handler.context = context

@@ -114,10 +114,15 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # We will assume that coordinator always send these values in the format
         # <section>__<key>, exactly as they are shown in the Airflow Configuration
         # documentation.
-        extra_env = [
+        extra_env_sensitive = [
             {"name": "AIRFLOW__" + key.upper(), "secret_key": key}
             for key in sensitive_data
             if key not in _NON_SECRET_KEYS
+        ]
+
+        extra_data = (provider_content.extra_data or {}) if provider_content else {}
+        extra_env = [
+            {"name": key.upper(), "value": value} for key, value in extra_data.items() if value
         ]
 
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
@@ -125,6 +130,7 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             pod_name=self.config["pod_name"],
             base_image=self.config["base_image"],
             namespace=self.config["namespace"],
+            extra_env_sensitive=extra_env_sensitive,
             extra_env=extra_env,
             configmap_name=constants.CONFIGMAP_NAME,
             secret_name=constants.SECRET_NAME,
@@ -153,6 +159,8 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # Strip the rendering-control flag before storing values in the K8s Secret.
         secret_data = {k: v for k, v in sensitive_data.items() if k != "render_sensitive_data"}
 
+        extra_data = (provider_content.extra_data or {}) if provider_content else {}
+
         return {
             "app_name": self.app.name,
             "model_name": self.model.name,
@@ -161,6 +169,7 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             "airflow_config": rendered_config,
             "sensitive_data": secret_data,
             "namespace": self.config["namespace"],
+            "spark_namespace": extra_data.get(constants.SPARK_NAMESPACE_KEY),
         }
 
     def _apply_k8s_resources(self) -> None:
