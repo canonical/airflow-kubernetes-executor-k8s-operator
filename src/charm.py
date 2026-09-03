@@ -114,18 +114,24 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # We will assume that coordinator always send these values in the format
         # <section>__<key>, exactly as they are shown in the Airflow Configuration
         # documentation.
-        # Keys prefixed with "connections__" become AIRFLOW_CONN_* env vars;
-        # all others become AIRFLOW__* env vars (standard Airflow override format).
-        extra_env = [
-            {
-                "name": f"AIRFLOW_CONN_{key.removeprefix('connections__').upper()}",
-                "secret_key": key,
-            }
-            if key.startswith("connections__")
-            else {"name": f"AIRFLOW__{key.upper()}", "secret_key": key}
-            for key in sensitive_data
-            if key not in _NON_SECRET_KEYS
-        ]
+        # Keys prefixed with "connections__" become AIRFLOW_CONN_* env vars and are
+        # collected in conn_env: the init container needs only these to fetch DAGs.
+        # All others become AIRFLOW__* env vars (standard Airflow override format)
+        # and go in extra_env, which only the base container needs.
+        conn_env = []
+        extra_env = []
+        for key in sensitive_data:
+            if key in _NON_SECRET_KEYS:
+                continue
+            if key.startswith("connections__"):
+                conn_env.append(
+                    {
+                        "name": f"AIRFLOW_CONN_{key.removeprefix('connections__').upper()}",
+                        "secret_key": key,
+                    }
+                )
+            else:
+                extra_env.append({"name": f"AIRFLOW__{key.upper()}", "secret_key": key})
 
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
         return jinja2.Template(template_str).render(
@@ -133,6 +139,7 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             base_image=self.config["base_image"],
             namespace=self.config["namespace"],
             extra_env=extra_env,
+            conn_env=conn_env,
             configmap_name=constants.CONFIGMAP_NAME,
             secret_name=constants.SECRET_NAME,
         )
