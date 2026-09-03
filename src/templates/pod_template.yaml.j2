@@ -33,6 +33,16 @@ spec:
         # if the Airflow Coordinator charm sets the value.
         - name: AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_STORAGE_PATH
           value: {{ dag_bundle_storage_path | default('/opt/airflow/dag_bundles') }}
+        # Init container only needs connection credentials to fetch DAGs, not the full config.
+{% for env_var in conn_env %}
+        - name: {{ env_var.name }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ secret_name }}
+              key: {{ env_var.secret_key }}
+{% endfor %}
+        - name: AIRFLOW_CONN_GIT_DEFAULT
+          value: '{"conn_type": "git"}'
       volumeMounts:
         - name: airflow-logs
           mountPath: /opt/airflow/logs
@@ -64,6 +74,13 @@ spec:
         - name: AIRFLOW_CONN_GIT_DEFAULT
           value: '{"conn_type": "git"}'
 {% for env_var in extra_env %}
+        - name: {{ env_var.name }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ secret_name }}
+              key: {{ env_var.secret_key }}
+{% endfor %}
+{% for env_var in conn_env %}
         - name: {{ env_var.name }}
           valueFrom:
             secretKeyRef:

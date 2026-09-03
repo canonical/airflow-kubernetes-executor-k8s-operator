@@ -38,6 +38,7 @@ integration debug="": (clean)
 	trap 'just clean-mock-charm-libs' EXIT
 
 	charmcraft pack --project-dir tests/integration/mock-coordinator-charm
+	cp tests/integration/mock-coordinator-charm/mock-coordinator-charm*.charm .
 
 	pdb_options=$(if [ -n "${debug}" ]; then echo "--pdb"; fi)
 
