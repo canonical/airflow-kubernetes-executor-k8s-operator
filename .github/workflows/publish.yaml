@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - tests
+    permissions:
+      contents: write
     timeout-minutes: 60
     steps:
       - name: Checkout
