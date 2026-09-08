@@ -117,9 +117,9 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # Keys prefixed with "connections__" become AIRFLOW_CONN_* env vars and are
         # collected in conn_env: the init container needs only these to fetch DAGs.
         # All others become AIRFLOW__* env vars (standard Airflow override format)
-        # and go in extra_env, which only the base container needs.
+        # and go in extra_env_sensitive, which only the base container needs.
         conn_env = []
-        extra_env = []
+        extra_env_sensitive = []
         for key in sensitive_data:
             if key in _NON_SECRET_KEYS:
                 continue
@@ -131,13 +131,19 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
                     }
                 )
             else:
-                extra_env.append({"name": f"AIRFLOW__{key.upper()}", "secret_key": key})
+                extra_env_sensitive.append({"name": f"AIRFLOW__{key.upper()}", "secret_key": key})
+
+        extra_data = (provider_content.extra_data or {}) if provider_content else {}
+        extra_env = [
+            {"name": key.upper(), "value": value} for key, value in extra_data.items() if value
+        ]
 
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
         return jinja2.Template(template_str).render(
             pod_name=self.config["pod_name"],
             base_image=self.config["base_image"],
             namespace=self.config["namespace"],
+            extra_env_sensitive=extra_env_sensitive,
             extra_env=extra_env,
             conn_env=conn_env,
             configmap_name=constants.CONFIGMAP_NAME,
@@ -167,6 +173,8 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # Strip the rendering-control flag before storing values in the K8s Secret.
         secret_data = {k: v for k, v in sensitive_data.items() if k != "render_sensitive_data"}
 
+        extra_data = (provider_content.extra_data or {}) if provider_content else {}
+
         return {
             "app_name": self.app.name,
             "model_name": self.model.name,
@@ -175,6 +183,7 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             "airflow_config": rendered_config,
             "sensitive_data": secret_data,
             "namespace": self.config["namespace"],
+            "spark_namespace": extra_data.get(constants.SPARK_NAMESPACE_KEY),
         }
 
     def _apply_k8s_resources(self) -> None:

@@ -1,0 +1,28 @@
+{% if spark_namespace %}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ app_name }}-spark-role
+  namespace: {{ spark_namespace }}
+rules:
+  # spark8t/Spark-on-K8s client mode needs to read the Spark SA and create the
+  # driver's pods, configmaps and headless service.
+  - apiGroups: [""]
+    resources: ["pods", "configmaps", "services", "serviceaccounts"]
+    verbs: ["create", "delete", "get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ app_name }}-spark-rolebinding
+  namespace: {{ spark_namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ app_name }}-spark-role
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: {{ namespace }}
+{% endif %}

@@ -3,9 +3,11 @@
 
 import dataclasses
 import json
+import pathlib
 import unittest.mock
 
 import charms.airflow_coordinator_k8s.v0.airflow_coordinator as airflow_coordinator
+import jinja2
 import ops
 import ops.testing
 
@@ -208,6 +210,50 @@ class TestPodTemplateRendering:
 
         assert "AIRFLOW__CORE__SECRET_KEY" in rendered
 
+    def test_render_pod_template_injects_spark_env_from_extra_data(self, context, base_state):
+        """Spark namespace/username from extra_data become plain env vars in the pod template."""
+        model = airflow_coordinator.AirflowCoordinatorProviderModel(
+            config_template=MOCK_CONFIG_TEMPLATE,
+            sensitive_data=json.dumps(MOCK_SENSITIVE_DATA),
+            extra_data={
+                constants.SPARK_NAMESPACE_KEY: "airflow-spark",
+                constants.SPARK_USERNAME_KEY: "spark",
+            },
+        )
+
+        with unittest.mock.patch.object(
+            airflow_coordinator.AirflowCoordinatorRequires,
+            "provider_content",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=model,
+        ):
+            with context(context.on.start(), base_state) as manager:
+                rendered = manager.charm._render_pod_template()
+
+        assert "SPARK_NAMESPACE" in rendered
+        assert "airflow-spark" in rendered
+        assert "SPARK_USERNAME" in rendered
+        assert "serviceAccountName" not in rendered
+
+    def test_render_pod_template_no_spark_without_extra_data(self, context, base_state):
+        """Without extra_data, no spark env vars or serviceAccountName are rendered."""
+        model = airflow_coordinator.AirflowCoordinatorProviderModel(
+            config_template=MOCK_CONFIG_TEMPLATE,
+            sensitive_data=json.dumps(MOCK_SENSITIVE_DATA),
+        )
+
+        with unittest.mock.patch.object(
+            airflow_coordinator.AirflowCoordinatorRequires,
+            "provider_content",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=model,
+        ):
+            with context(context.on.start(), base_state) as manager:
+                rendered = manager.charm._render_pod_template()
+
+        assert "SPARK_NAMESPACE" not in rendered
+        assert "serviceAccountName" not in rendered
+
 
 class TestExecutorConfig:
     def test_build_executor_config_contains_required_keys(self, context, base_state):
@@ -241,3 +287,64 @@ class TestExecutorConfig:
         assert config["kubernetes_executor"]["pod_template_file"] == (
             constants.AIRFLOW_POD_TEMPLATE_FILE_PATH
         )
+
+
+class TestSparkRbac:
+    def test_context_includes_spark_namespace_from_extra_data(self, context, base_state):
+        """_context exposes spark_namespace from the coordinator's extra_data."""
+        model = airflow_coordinator.AirflowCoordinatorProviderModel(
+            config_template=MOCK_CONFIG_TEMPLATE,
+            sensitive_data=json.dumps(MOCK_SENSITIVE_DATA),
+            extra_data={constants.SPARK_NAMESPACE_KEY: "airflow-spark"},
+        )
+
+        with unittest.mock.patch.object(
+            airflow_coordinator.AirflowCoordinatorRequires,
+            "provider_content",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=model,
+        ):
+            with context(context.on.start(), base_state) as manager:
+                charm = manager.charm
+                assert charm._context["spark_namespace"] == "airflow-spark"
+
+    def test_context_spark_namespace_none_without_extra_data(
+        self, context, base_state, mock_provider_content_ready
+    ):
+        """_context.spark_namespace is None when the coordinator sends no extra_data."""
+        with context(context.on.start(), base_state) as manager:
+            charm = manager.charm
+            assert charm._context["spark_namespace"] is None
+
+    def test_spark_rbac_template_renders_role_and_rolebinding(self, context, base_state):
+        """spark_rbac.j2 renders a Role and RoleBinding scoped to the spark namespace."""
+        model = airflow_coordinator.AirflowCoordinatorProviderModel(
+            config_template=MOCK_CONFIG_TEMPLATE,
+            sensitive_data=json.dumps(MOCK_SENSITIVE_DATA),
+            extra_data={constants.SPARK_NAMESPACE_KEY: "airflow-spark"},
+        )
+
+        with unittest.mock.patch.object(
+            airflow_coordinator.AirflowCoordinatorRequires,
+            "provider_content",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=model,
+        ):
+            with context(context.on.start(), base_state) as manager:
+                template_str = pathlib.Path("src/templates/spark_rbac.j2").read_text()
+                rendered = jinja2.Template(template_str).render(**manager.charm._context)
+
+        assert "kind: Role" in rendered
+        assert "kind: RoleBinding" in rendered
+        assert "namespace: airflow-spark" in rendered
+        assert "name: default" in rendered
+
+    def test_spark_rbac_template_empty_without_spark_namespace(
+        self, context, base_state, mock_provider_content_ready
+    ):
+        """spark_rbac.j2 renders nothing when spark_namespace is not set."""
+        with context(context.on.start(), base_state) as manager:
+            template_str = pathlib.Path("src/templates/spark_rbac.j2").read_text()
+            rendered = jinja2.Template(template_str).render(**manager.charm._context)
+
+        assert rendered.strip() == ""
