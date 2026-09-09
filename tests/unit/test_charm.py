@@ -338,6 +338,11 @@ class TestSparkRbac:
         assert "kind: RoleBinding" in rendered
         assert "namespace: airflow-spark" in rendered
         assert "name: default" in rendered
+        assert "secrets" in rendered
+        assert "persistentvolumeclaims" in rendered
+        assert "patch" in rendered
+        assert "deletecollection" in rendered
+        assert "pods/log" in rendered
 
     def test_spark_rbac_template_empty_without_spark_namespace(
         self, context, base_state, mock_provider_content_ready

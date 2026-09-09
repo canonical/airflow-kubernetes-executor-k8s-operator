@@ -6,11 +6,12 @@ metadata:
   name: {{ app_name }}-spark-role
   namespace: {{ spark_namespace }}
 rules:
-  # spark8t/Spark-on-K8s client mode needs to read the Spark SA and create the
-  # driver's pods, configmaps and headless service.
   - apiGroups: [""]
-    resources: ["pods", "configmaps", "services", "serviceaccounts"]
-    verbs: ["create", "delete", "get", "list", "watch"]
+    resources: ["pods", "configmaps", "services", "serviceaccounts", "secrets", "persistentvolumeclaims"]
+    verbs: ["create", "delete", "deletecollection", "get", "list", "patch", "update", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log", "pods/status"]
+    verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
