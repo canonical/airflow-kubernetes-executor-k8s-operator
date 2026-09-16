@@ -114,16 +114,38 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
         # We will assume that coordinator always send these values in the format
         # <section>__<key>, exactly as they are shown in the Airflow Configuration
         # documentation.
-        extra_env_sensitive = [
-            {"name": "AIRFLOW__" + key.upper(), "secret_key": key}
-            for key in sensitive_data
-            if key not in _NON_SECRET_KEYS
-        ]
+        # Keys prefixed with "connections__" become AIRFLOW_CONN_* env vars and are
+        # collected in conn_env: the init container needs only these to fetch DAGs.
+        # All others become AIRFLOW__* env vars (standard Airflow override format)
+        # and go in extra_env_sensitive, which only the base container needs.
+        conn_env = []
+        extra_env_sensitive = []
+        for key in sensitive_data:
+            if key in _NON_SECRET_KEYS:
+                continue
+            if key.startswith("connections__"):
+                conn_env.append(
+                    {
+                        "name": f"AIRFLOW_CONN_{key.removeprefix('connections__').upper()}",
+                        "secret_key": key,
+                    }
+                )
+            else:
+                extra_env_sensitive.append({"name": f"AIRFLOW__{key.upper()}", "secret_key": key})
 
         extra_data = (provider_content.extra_data or {}) if provider_content else {}
         extra_env = [
             {"name": key.upper(), "value": value} for key, value in extra_data.items() if value
         ]
+
+        # The default git connection is only needed when the coordinator configured a
+        # git-backed DAG bundle; S3-only deployments should not carry it.
+        config_template = provider_content.config_template if provider_content else None
+        has_git_bundle = (
+            constants.GIT_DAG_BUNDLE_CLASSPATH in config_template
+            if isinstance(config_template, str)
+            else False
+        )
 
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
         return jinja2.Template(template_str).render(
@@ -132,6 +154,8 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             namespace=self.config["namespace"],
             extra_env_sensitive=extra_env_sensitive,
             extra_env=extra_env,
+            conn_env=conn_env,
+            has_git_bundle=has_git_bundle,
             configmap_name=constants.CONFIGMAP_NAME,
             secret_name=constants.SECRET_NAME,
         )

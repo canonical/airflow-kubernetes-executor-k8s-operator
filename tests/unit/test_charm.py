@@ -210,6 +210,81 @@ class TestPodTemplateRendering:
 
         assert "AIRFLOW__CORE__SECRET_KEY" in rendered
 
+    def test_render_pod_template_splits_conn_and_config_env(self, context, base_state):
+        """Init container gets only AIRFLOW_CONN_* vars, not the AIRFLOW__* config vars.
+
+        The connection env vars are all the init container needs to fetch DAGs, while
+        config overrides such as the metadata DB connection stay in the base container.
+        """
+        sensitive_data = {
+            **MOCK_SENSITIVE_DATA,
+            "connections__s3_relation_1_connection": '{"conn_type": "aws"}',
+        }
+        model = airflow_coordinator.AirflowCoordinatorProviderModel(
+            config_template=MOCK_CONFIG_TEMPLATE,
+            sensitive_data=json.dumps(sensitive_data),
+        )
+
+        with unittest.mock.patch.object(
+            airflow_coordinator.AirflowCoordinatorRequires,
+            "provider_content",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=model,
+        ):
+            with context(context.on.start(), base_state) as manager:
+                charm = manager.charm
+                rendered = charm._render_pod_template()
+
+        # Isolate the init container section from the base container section.
+        init_section, _, base_section = rendered.partition("Base Airflow container")
+
+        assert "AIRFLOW_CONN_S3_RELATION_1_CONNECTION" in init_section
+        assert "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN" not in init_section
+        assert "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN" in base_section
+
+    def test_render_pod_template_sets_git_default_when_git_bundle_present(
+        self, context, base_state
+    ):
+        """The default git connection is rendered only when a git DAG bundle is configured."""
+        config_template = (
+            MOCK_CONFIG_TEMPLATE
+            + "\n[dag_processor]\ndag_bundle_config_list = "
+            + f'[{{"classpath": "{constants.GIT_DAG_BUNDLE_CLASSPATH}"}}]\n'
+        )
+        model = airflow_coordinator.AirflowCoordinatorProviderModel(
+            config_template=config_template,
+            sensitive_data=json.dumps(MOCK_SENSITIVE_DATA),
+        )
+
+        with unittest.mock.patch.object(
+            airflow_coordinator.AirflowCoordinatorRequires,
+            "provider_content",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=model,
+        ):
+            with context(context.on.start(), base_state) as manager:
+                rendered = manager.charm._render_pod_template()
+
+        assert "AIRFLOW_CONN_GIT_DEFAULT" in rendered
+
+    def test_render_pod_template_omits_git_default_without_git_bundle(self, context, base_state):
+        """Without a git DAG bundle (e.g. S3-only), the default git connection is omitted."""
+        model = airflow_coordinator.AirflowCoordinatorProviderModel(
+            config_template=MOCK_CONFIG_TEMPLATE,
+            sensitive_data=json.dumps(MOCK_SENSITIVE_DATA),
+        )
+
+        with unittest.mock.patch.object(
+            airflow_coordinator.AirflowCoordinatorRequires,
+            "provider_content",
+            new_callable=unittest.mock.PropertyMock,
+            return_value=model,
+        ):
+            with context(context.on.start(), base_state) as manager:
+                rendered = manager.charm._render_pod_template()
+
+        assert "AIRFLOW_CONN_GIT_DEFAULT" not in rendered
+
     def test_render_pod_template_injects_spark_env_from_extra_data(self, context, base_state):
         """Spark namespace/username from extra_data become plain env vars in the pod template."""
         model = airflow_coordinator.AirflowCoordinatorProviderModel(
