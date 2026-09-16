@@ -41,8 +41,10 @@ spec:
               name: {{ secret_name }}
               key: {{ env_var.secret_key }}
 {% endfor %}
+{% if has_git_bundle %}
         - name: AIRFLOW_CONN_GIT_DEFAULT
           value: '{"conn_type": "git"}'
+{% endif %}
       volumeMounts:
         - name: airflow-logs
           mountPath: /opt/airflow/logs
@@ -70,9 +72,11 @@ spec:
           value: KubernetesExecutor
         - name: AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_STORAGE_PATH
           value: {{ dag_bundle_storage_path | default('/opt/airflow/dag_bundles') }}
-        # Git connection required by the DAG bundle init container to clone repositories.
+{% if has_git_bundle %}
+        # Credential-less default git connection so public-repo git bundles can clone.
         - name: AIRFLOW_CONN_GIT_DEFAULT
           value: '{"conn_type": "git"}'
+{% endif %}
 {% for env_var in extra_env_sensitive %}
         - name: {{ env_var.name }}
           valueFrom:

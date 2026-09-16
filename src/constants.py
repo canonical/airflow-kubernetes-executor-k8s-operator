@@ -27,6 +27,11 @@ AIRFLOW_POD_TEMPLATE_FILE_PATH = "/opt/airflow/pod_templates/worker_pod_template
 SPARK_NAMESPACE_KEY = "spark_namespace"
 SPARK_USERNAME_KEY = "spark_username"
 
+# Classpath the coordinator writes into the config template for a git-backed DAG
+# bundle. Its presence means worker pods need the default git connection to clone
+# public repositories.
+GIT_DAG_BUNDLE_CLASSPATH = "airflow.providers.git.bundles.git.GitDagBundle"
+
 # Jinja2 template files rendered into Kubernetes resources by KubernetesResourceHandler.
 K8S_RESOURCE_FILES = [
     "src/templates/configmap.j2",

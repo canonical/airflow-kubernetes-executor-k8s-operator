@@ -138,6 +138,15 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             {"name": key.upper(), "value": value} for key, value in extra_data.items() if value
         ]
 
+        # The default git connection is only needed when the coordinator configured a
+        # git-backed DAG bundle; S3-only deployments should not carry it.
+        config_template = provider_content.config_template if provider_content else None
+        has_git_bundle = (
+            constants.GIT_DAG_BUNDLE_CLASSPATH in config_template
+            if isinstance(config_template, str)
+            else False
+        )
+
         template_str = pathlib.Path(constants.POD_TEMPLATE_PATH).read_text()
         return jinja2.Template(template_str).render(
             pod_name=self.config["pod_name"],
@@ -146,6 +155,7 @@ class AirflowKubernetesExecutorK8SCharm(ops.CharmBase):
             extra_env_sensitive=extra_env_sensitive,
             extra_env=extra_env,
             conn_env=conn_env,
+            has_git_bundle=has_git_bundle,
             configmap_name=constants.CONFIGMAP_NAME,
             secret_name=constants.SECRET_NAME,
         )
