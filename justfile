@@ -33,12 +33,12 @@ integration debug="": (clean)
 
 	charmcraft pack
 
-	cp -r lib tests/integration/mock-coordinator-charm/lib
+	cp -a lib tests/integration/mock-coordinator-charm/
 
 	trap 'just clean-mock-charm-libs' EXIT
 
-	charmcraft pack --project-dir tests/integration/mock-coordinator-charm
-	cp tests/integration/mock-coordinator-charm/mock-coordinator-charm*.charm .
+	cd tests/integration/mock-coordinator-charm && charmcraft pack && cd -
+	cp tests/integration/mock-coordinator-charm/*.charm .
 
 	pdb_options=$(if [ -n "${debug}" ]; then echo "--pdb"; fi)
 
