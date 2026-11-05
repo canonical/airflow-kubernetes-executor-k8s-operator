@@ -56,7 +56,7 @@ test:
     #!/usr/bin/bash
     set -euxo pipefail
 
-    trap 'just destroy "./test/test.tfvars"' EXIT
+    trap 'status=$?; if [ "$status" -ne 0 ]; then juju status --model terraform --format=yaml || true; fi; just destroy "./test/test.tfvars"; exit "$status"' EXIT
 
     just add-model
 
