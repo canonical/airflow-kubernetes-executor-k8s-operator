@@ -9,12 +9,12 @@ requires-python = ">=3.12"
 # Dependencies of the charm code.
 # Include dependencies of any charmlibs used (copy the PYDEPS from each lib).
 dependencies = [
-    "ops>=3,<4",
-    "pydantic>=2.0",
+    "ops>=3.9.0,<4",
+    "pydantic>=2.14.4",
     "Jinja2>=3.1.6",
     "lightkube>=0.15",
-    "lightkube-models>=1.30",
-    "charmed-kubeflow-chisme>=0.4.21",
+    "lightkube-models>=1.37.0.8",
+    "charmed-kubeflow-chisme>=0.4.31",
 ]
 
 [dependency-groups]
